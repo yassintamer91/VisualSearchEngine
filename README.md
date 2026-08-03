@@ -19,7 +19,7 @@ The result is a lightweight and extensible visual search system that can be used
 	<img src="assets/screenshot.png" alt="ShelfSearch interface screenshot" width="100%">
 </p>
 
-Place the screenshot you shared in `assets/screenshot.png` so it renders directly in the README on GitHub.
+
 
 ## Key Features
 
