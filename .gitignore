@@ -13,6 +13,9 @@ dist/
 .ipynb_checkpoints/
 .DS_Store
 *.sqlite3
+runs/
+data/yolo_full_dataset/
+data/yolo_subset_dataset/
 app/static/uploads/*
 !app/static/uploads/.gitkeep
 app/static/catalog/*

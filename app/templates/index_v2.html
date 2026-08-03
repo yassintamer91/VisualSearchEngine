@@ -1,0 +1,759 @@
+{% extends "base.html" %}
+{% block title %}Visual Supermarket Search — Featured View{% endblock %}
+
+{% block extra_styles %}
+<style>
+:root {
+  --v2-green:       #1D9E75;
+  --v2-green-dark:  #0F6E56;
+  --v2-green-light: rgba(29,158,117,0.12);
+  --v2-teal:        #0d9488;
+  --v2-amber:       #EF9F27;
+}
+
+/* override body — kill base.html background image and overlay, take full control of layout */
+body { padding: 0 !important; display: block !important; align-items: initial !important; }
+body::before { background-image: none !important; }
+body::after  { display: none !important; }
+
+/* pull the inherited fixed theme-toggle flush into the topbar */
+.theme-toggle {
+  top: 0 !important;
+  right: 0 !important;
+  height: 52px !important;
+  width: 52px !important;
+  border-radius: 0 !important;
+  border-left: 1px solid var(--box-border) !important;
+  padding: 0 !important;
+  opacity: 1 !important;
+}
+.theme-toggle:hover { background: var(--item-bg) !important; transform: none !important; }
+
+/* ── Shell ──────────────────────────────────────────────────────────────── */
+.v2-shell {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Topbar ─────────────────────────────────────────────────────────────── */
+.v2-topbar {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: var(--box-bg);
+  border-bottom: 1px solid var(--box-border);
+  position: relative;
+  z-index: 10;
+}
+.v2-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-main);
+  text-decoration: none;
+}
+.v2-logo-icon {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: var(--v2-green);
+  display: flex; align-items: center; justify-content: center;
+}
+.v2-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 52px; /* leave room for the flush theme-toggle button */
+}
+.v2-badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  background: var(--item-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--box-border);
+}
+.v2-view-switch {
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--item-bg);
+  color: var(--text-muted);
+  border: 1px solid var(--box-border);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.v2-view-switch:hover { border-color: var(--v2-green); color: var(--v2-green); }
+
+/* ── Two-panel main ─────────────────────────────────────────────────────── */
+.v2-main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+}
+
+/* ── LEFT PANEL ─────────────────────────────────────────────────────────── */
+.v2-left {
+  border-right: 1px solid var(--box-border);
+  background: var(--item-bg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.v2-upload-zone {
+  border: 1.5px dashed var(--box-border);
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  aspect-ratio: 4 / 3;
+  cursor: pointer;
+  flex-shrink: 0;
+  background: var(--box-bg);
+  transition: border-color 0.15s;
+  display: block;
+}
+.v2-upload-zone:hover,
+.v2-upload-zone.dragover { border-color: var(--v2-green); }
+.v2-upload-zone.has-image { border-style: solid; border-color: var(--v2-green); }
+.v2-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.v2-placeholder svg { opacity: 0.35; }
+.v2-placeholder span { font-size: 13px; }
+.v2-placeholder small { font-size: 11px; opacity: 0.7; }
+
+#v2AnnImg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: none;
+  z-index: 1;
+}
+
+/* Detection pills */
+.v2-det-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.v2-pill {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--box-bg);
+  border: 1px solid var(--box-border);
+  border-radius: 20px;
+  padding: 4px 10px;
+}
+.v2-pill-label { font-size: 11px; color: var(--text-muted); }
+.v2-pill-val   { font-size: 11px; font-weight: 600; color: var(--text-main); }
+
+/* Crop strip */
+.v2-crop-strip { display: flex; gap: 8px; }
+.v2-crop-thumb {
+  flex: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1.5px solid var(--box-border);
+  background: var(--box-bg);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.v2-crop-thumb.active { border-color: var(--v2-green); }
+.v2-crop-thumb-img {
+  aspect-ratio: 1;
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--box-bg);
+}
+.v2-crop-thumb-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.v2-crop-thumb-label {
+  font-size: 10px;
+  text-align: center;
+  padding: 4px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--box-border);
+}
+.v2-crop-thumb.active .v2-crop-thumb-label { color: var(--v2-green); font-weight: 600; }
+
+.v2-upload-btn {
+  margin-top: auto;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--v2-green);
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.v2-upload-btn:hover { background: var(--v2-green-dark); }
+
+/* ── RIGHT PANEL ────────────────────────────────────────────────────────── */
+.v2-right {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  min-height: 0;
+  background: var(--bg-main);
+}
+
+/* pre-upload empty state */
+.v2-empty {
+  flex: 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 40px 20px;
+}
+.v2-empty svg { opacity: 0.2; }
+.v2-empty h3  { font-size: 1rem; color: var(--text-main); margin-top: 4px; }
+.v2-empty p   { font-size: 13px; line-height: 1.55; max-width: 300px; }
+
+/* loading */
+.v2-loading {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+  color: var(--v2-green);
+  text-align: center;
+}
+.v2-spinner {
+  width: 38px; height: 38px;
+  border: 3px solid var(--box-border);
+  border-top-color: var(--v2-green);
+  border-radius: 50%;
+  animation: v2spin 0.8s linear infinite;
+}
+@keyframes v2spin { to { transform: rotate(360deg); } }
+.v2-loading-lbl { font-size: 14px; font-weight: 500; }
+
+/* crop nav tabs */
+.v2-crop-nav {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--item-bg);
+  border: 1px solid var(--box-border);
+  border-radius: 12px;
+  padding: 5px 6px;
+  flex-shrink: 0;
+}
+.v2-crop-tab {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.v2-crop-tab.active {
+  background: var(--box-bg);
+  color: var(--v2-green);
+  border-color: var(--box-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+.v2-crop-tab:hover:not(.active) { color: var(--text-main); }
+.v2-crop-conf { font-size: 10px; font-weight: 400; color: var(--text-muted); }
+.v2-crop-tab.active .v2-crop-conf { color: var(--v2-teal); }
+.v2-nav-arrows { display: flex; gap: 4px; flex-shrink: 0; }
+.v2-nav-arrow {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  background: var(--box-bg);
+  border: 1px solid var(--box-border);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 16px; line-height: 1;
+  transition: all 0.12s;
+  user-select: none;
+}
+.v2-nav-arrow:hover { border-color: var(--v2-green); color: var(--v2-green); }
+
+/* featured card */
+.v2-featured {
+  display: flex; gap: 14px;
+  border: 2px solid var(--v2-green);
+  border-radius: 16px;
+  background: var(--box-bg);
+  padding: 14px;
+  position: relative; overflow: hidden;
+  flex-shrink: 0;
+}
+.v2-featured::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--v2-green-light) 0%, transparent 55%);
+  pointer-events: none;
+}
+.v2-feat-img {
+  width: 80px; height: 80px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--item-bg);
+  border: 1px solid var(--box-border);
+  overflow: hidden;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.v2-feat-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.v2-feat-rank {
+  position: absolute; top: 4px; left: 4px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--v2-amber);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 4px rgba(239,159,39,0.5);
+}
+.v2-feat-sbar { position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--box-border); }
+.v2-feat-sbar-fill { height: 100%; background: var(--v2-green); border-radius: 0 2px 2px 0; }
+.v2-feat-info {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.v2-feat-tag  { font-size: 10px; font-weight: 700; color: var(--v2-green); text-transform: uppercase; letter-spacing: 0.06em; }
+.v2-feat-name { font-size: 15px; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-feat-brand{ font-size: 12px; color: var(--text-muted); }
+.v2-feat-sim  { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+.v2-feat-pct  { font-size: 24px; font-weight: 700; color: var(--v2-green); line-height: 1; }
+.v2-feat-plbl { font-size: 11px; color: var(--text-muted); }
+.v2-feat-badge{
+  margin-left: auto; align-self: center;
+  font-size: 10px; padding: 3px 8px; border-radius: 20px;
+  background: var(--v2-green-light); color: var(--v2-green); font-weight: 500;
+  border: 1px solid rgba(29,158,117,0.25);
+}
+.v2-trial-badge {
+  font-size: 10px; padding: 3px 8px; border-radius: 20px;
+  background: rgba(239,159,39,0.12); color: var(--v2-amber); font-weight: 600;
+  border: 1px solid rgba(239,159,39,0.35);
+  flex-shrink: 0;
+}
+
+/* sub-header */
+.v2-sub-hd { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.v2-sub-title { font-size: 11px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.v2-sub-count { font-size: 11px; color: var(--text-muted); }
+
+/* match list */
+.v2-match-list { display: flex; flex-direction: column; gap: 7px; }
+.v2-match-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--box-bg);
+  border: 1px solid var(--box-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: default;
+  transition: border-color 0.12s;
+}
+.v2-match-item:hover { border-color: var(--v2-green); }
+.v2-match-img {
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--item-bg);
+  border: 1px solid var(--box-border);
+  overflow: hidden; position: relative;
+  display: flex; align-items: center; justify-content: center;
+}
+.v2-match-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.v2-match-rank {
+  position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--box-bg); border: 1px solid var(--box-border);
+  font-size: 9px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+}
+.v2-match-sbar { position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--box-border); }
+.v2-match-sbar-fill { height: 100%; background: var(--v2-teal); border-radius: 0 1px 1px 0; }
+.v2-match-info { flex: 1; min-width: 0; }
+.v2-match-name { font-size: 12px; font-weight: 500; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2-match-brand{ font-size: 11px; color: var(--text-muted); }
+.v2-match-pct  { font-size: 13px; font-weight: 600; color: var(--v2-teal); flex-shrink: 0; }
+
+/* error */
+.v2-error {
+  background: var(--error-bg); border: 1px solid var(--error-border);
+  border-radius: 10px; padding: 14px 18px;
+  color: var(--error-text); font-size: 13px;
+}
+
+/* stats footer */
+.v2-stats {
+  margin-top: auto;
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
+  padding-top: 12px; border-top: 1px solid var(--box-border);
+  flex-shrink: 0;
+}
+.v2-stat-block {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--item-bg); border: 1px solid var(--box-border);
+  border-radius: 8px; padding: 10px 12px;
+}
+.v2-stat-icon {
+  width: 30px; height: 30px; border-radius: 8px;
+  background: var(--v2-green-light); color: var(--v2-green);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.v2-stat-text { display: flex; flex-direction: column; gap: 1px; }
+.v2-stat-val   { font-size: 15px; font-weight: 600; color: var(--text-main); }
+.v2-stat-label { font-size: 10px; color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="v2-shell">
+
+  <div class="v2-topbar">
+    <a href="/" class="v2-logo">
+      <div class="v2-logo-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+      </div>
+      ShelfSearch
+    </a>
+    <div class="v2-topbar-right">
+      <span class="v2-badge">YOLOv8 + CLIP</span>
+      <span class="v2-badge">FAISS index</span>
+    </div>
+  </div>
+
+  <div class="v2-main">
+
+    <!-- LEFT PANEL -->
+    <div class="v2-left">
+
+      <div class="v2-upload-zone" id="v2Zone">
+        <div class="v2-placeholder" id="v2Placeholder">
+          <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+          </svg>
+          <span>Drop image or click</span>
+          <small>JPG · PNG · WebP · max 15 MB</small>
+        </div>
+        <img id="v2AnnImg" alt="Detected products">
+      </div>
+      <input type="file" id="v2File" accept="image/*" style="display:none">
+
+      <div class="v2-det-pills" id="v2Pills" style="display:none">
+        <div class="v2-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--v2-green)"><path d="M3 5H1v16c0 1.1.9 2 2 2h16v-2H3V5zm18-4H7c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V3c0-1.1-.9-2-2-2zm0 16H7V3h14v14z"/></svg>
+          <span class="v2-pill-label">Objects</span>
+          <span class="v2-pill-val" id="v2PObj">—</span>
+        </div>
+        <div class="v2-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--v2-green)"><path d="M12 2C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zm0 18a8 8 0 0 1-8-8 8 8 0 0 1 8-8 8 8 0 0 1 8 8 8 8 0 0 1-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/></svg>
+          <span class="v2-pill-label">Conf</span>
+          <span class="v2-pill-val" id="v2PConf">—</span>
+        </div>
+        <div class="v2-pill">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="var(--v2-amber)"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>
+          <span class="v2-pill-label">Time</span>
+          <span class="v2-pill-val" id="v2PTime">—</span>
+        </div>
+      </div>
+
+      <div class="v2-crop-strip" id="v2Strip" style="display:none"></div>
+
+      <button class="v2-upload-btn" id="v2UpBtn" type="button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+        </svg>
+        Upload new image
+      </button>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="v2-right" id="v2Right">
+
+      <div class="v2-empty" id="v2Empty">
+        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+        </svg>
+        <h3>Upload a product photo</h3>
+        <p>YOLOv8 detects every product region, then CLIP finds the closest matches in the catalog.</p>
+      </div>
+
+      <div class="v2-loading" id="v2Load">
+        <div class="v2-spinner"></div>
+        <div class="v2-loading-lbl" id="v2LoadLbl">Analyzing image…</div>
+      </div>
+
+      <div id="v2Results"></div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function esc(s){
+  return String(s==null?'':s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+var _data=null, _crop=0, _indexSize='—', _latency='—', _t0=0;
+
+// fetch index size at page load
+fetch('/health').then(function(r){return r.json();}).then(function(d){
+  _indexSize = d.faiss_index_size>=0 ? d.faiss_index_size.toLocaleString() : '—';
+  var el=document.getElementById('v2StatIdx'); if(el) el.textContent=_indexSize;
+}).catch(function(){});
+
+var zone=document.getElementById('v2Zone'),
+    placeholder=document.getElementById('v2Placeholder'),
+    annImg=document.getElementById('v2AnnImg'),
+    fileIn=document.getElementById('v2File'),
+    pills=document.getElementById('v2Pills'),
+    strip=document.getElementById('v2Strip'),
+    empty=document.getElementById('v2Empty'),
+    load=document.getElementById('v2Load'),
+    results=document.getElementById('v2Results'),
+    upBtn=document.getElementById('v2UpBtn');
+
+// click zone to open file picker
+zone.addEventListener('click', function(){ fileIn.click(); });
+
+// drag events
+zone.addEventListener('dragenter',function(e){e.preventDefault();zone.classList.add('dragover');});
+zone.addEventListener('dragover', function(e){e.preventDefault();});
+zone.addEventListener('dragleave',function(){zone.classList.remove('dragover');});
+zone.addEventListener('drop',function(e){
+  e.preventDefault(); zone.classList.remove('dragover');
+  var f=e.dataTransfer.files[0]; if(f) setFile(f);
+});
+document.addEventListener('paste',function(e){
+  var items=(e.clipboardData||window.clipboardData).items;
+  for(var i=0;i<items.length;i++){
+    if(items[i].type.startsWith('image/')){var f=items[i].getAsFile();if(f){setFile(f);break;}}
+  }
+});
+fileIn.addEventListener('change',function(e){var f=e.target.files[0];if(f)setFile(f);});
+upBtn.addEventListener('click',function(){fileIn.value='';fileIn.click();});
+
+function setFile(file){
+  if(file.size>15*1024*1024){alert('File too large (max 15 MB).');return;}
+  if(!file.type.startsWith('image/')){alert('Please select an image file.');return;}
+  var url=URL.createObjectURL(file);
+  annImg.src=url; annImg.style.display='block';
+  placeholder.style.display='none';
+  zone.classList.add('has-image');
+  empty.style.display='none';
+  load.style.display='flex';
+  results.innerHTML='';
+  pills.style.display='none';
+  strip.style.display='none';
+  document.getElementById('v2LoadLbl').textContent='Detecting products…';
+  _t0=performance.now();
+  submit(file);
+}
+
+function submit(file){
+  var fd=new FormData(); fd.append('file',file);
+  var xhr=new XMLHttpRequest(); xhr.open('POST','/upload');
+  xhr.upload.addEventListener('load',function(){
+    document.getElementById('v2LoadLbl').textContent='Searching catalog…';
+  });
+  xhr.addEventListener('load',function(){
+    _latency=Math.round(performance.now()-_t0)+' ms';
+    try{
+      _data=JSON.parse(xhr.responseText);
+      _crop=0;
+      load.style.display='none';
+      renderAll();
+    }catch(e){
+      load.style.display='none';
+      results.innerHTML='<div class="v2-error">Unexpected server response. Please try again.</div>';
+    }
+  });
+  xhr.addEventListener('error',function(){
+    load.style.display='none';
+    results.innerHTML='<div class="v2-error">Network error. Check your connection and retry.</div>';
+  });
+  xhr.send(fd);
+}
+
+function renderAll(){
+  if(!_data) return;
+  if(_data.annotated_image) annImg.src=_data.annotated_image;
+  var dets=_data.detections||[];
+  if(dets.length>0){
+    var bc=dets.reduce(function(m,d){return d.confidence>m?d.confidence:m;},0);
+    document.getElementById('v2PObj').textContent=dets.length;
+    document.getElementById('v2PConf').textContent=bc>0?(bc/100).toFixed(2):'—';
+    document.getElementById('v2PTime').textContent=_latency;
+    pills.style.display='flex';
+    strip.innerHTML=dets.map(function(d,i){
+      return '<div class="v2-crop-thumb'+(i===_crop?' active':'')+'" onclick="switchCrop('+i+')">'
+        +'<div class="v2-crop-thumb-img"><img src="'+esc(d.crop_image)+'" loading="lazy"></div>'
+        +'<div class="v2-crop-thumb-label">Crop '+(i+1)+'</div>'
+        +'</div>';
+    }).join('');
+    strip.style.display='flex';
+  }
+  renderRight();
+}
+
+function renderRight(){
+  var dets=(_data&&_data.detections)||[];
+  var html='';
+
+  if(dets.length===0){
+    html='<div class="v2-empty" style="flex:1">'
+      +'<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="currentColor"><path d="M11 15h2v2h-2zm0-8h2v6h-2zm1-5C6.47 2 2 6.5 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zm0 18a8 8 0 0 1-8-8 8 8 0 0 1 8-8 8 8 0 0 1 8 8 8 8 0 0 1-8 8z"/></svg>'
+      +'<h3>No products detected</h3><p>Try a clearer photo with better lighting.</p></div>'
+      +statsHTML();
+    results.innerHTML=html; return;
+  }
+
+  // crop nav — only when >1 detection
+  if(dets.length>1){
+    html+='<div class="v2-crop-nav">';
+    dets.forEach(function(d,i){
+      var label=d.class.length>16?d.class.slice(0,16)+'…':d.class;
+      html+='<div class="v2-crop-tab'+(i===_crop?' active':'')+'" onclick="switchCrop('+i+')">'
+        +'Crop '+d.id+': '+esc(label)
+        +(d.confidence>0?'<span class="v2-crop-conf">· '+(d.confidence/100).toFixed(2)+'</span>':'')
+        +'</div>';
+    });
+    html+='<div class="v2-nav-arrows">'
+      +'<div class="v2-nav-arrow" onclick="switchCrop(('+_crop+'-1+'+dets.length+')%'+dets.length+')" title="Prev">&#8249;</div>'
+      +'<div class="v2-nav-arrow" onclick="switchCrop(('+_crop+'+1)%'+dets.length+')" title="Next">&#8250;</div>'
+      +'</div></div>';
+  }
+
+  var det=dets[_crop]||dets[0];
+  var items=det.similar_items||[];
+
+  if(items.length===0){
+    html+='<div class="v2-error">No similar products found for this crop. Add reference images via the admin panel.</div>'
+      +statsHTML();
+    results.innerHTML=html; return;
+  }
+
+  // featured top match
+  var isTrial=!!det.is_trial;
+  var top=items[0];
+  var topPct=Math.round((top.similarity_score||0)*100);
+  var topName=top.product_name||nameFromPath(top.image_path||'');
+  var topImg=top.image_url||top.image_path||'';
+  html+='<div class="v2-featured"'+(isTrial?' style="border-color:var(--v2-amber)"':'')+' >'
+    +(isTrial?'<style>.v2-featured::before{background:linear-gradient(135deg,rgba(239,159,39,0.10) 0%,transparent 55%)!important}</style>':'')
+    +'<div class="v2-feat-img">'
+      +(topImg?'<img src="'+esc(topImg)+'" alt="'+esc(topName)+'" loading="lazy">':'')
+      +'<span class="v2-feat-rank">1</span>'
+      +'<div class="v2-feat-sbar"><div class="v2-feat-sbar-fill" style="width:'+topPct+'%;background:'+(isTrial?'var(--v2-amber)':'var(--v2-green)')+'"></div></div>'
+    +'</div>'
+    +'<div class="v2-feat-info">'
+      +'<span class="v2-feat-tag" style="'+(isTrial?'color:var(--v2-amber)':'')+'">'+( isTrial ? 'Trial match' : 'Top match')+'</span>'
+      +'<div class="v2-feat-name">'+esc(topName)+'</div>'
+      +(top.price&&top.price!=='N/A'?'<div class="v2-feat-brand" style="color:var(--price-color);font-weight:600">'+esc(top.price)+' EGP</div>':'<div class="v2-feat-brand">'+esc(det.class)+'</div>')
+      +'<div class="v2-feat-sim">'
+        +'<span class="v2-feat-pct" style="'+(isTrial?'color:var(--v2-amber)':'')+'">'+topPct+'%</span>'
+        +'<span class="v2-feat-plbl">similarity</span>'
+        +(isTrial?'<span class="v2-trial-badge">Trial</span>':'<span class="v2-feat-badge">Best match</span>')
+      +'</div>'
+    +'</div>'
+  +'</div>';
+
+  // secondary matches
+  var rest=items.slice(1);
+  if(rest.length>0){
+    html+='<div class="v2-sub-hd">'
+      +'<span class="v2-sub-title">Other matches</span>'
+      +'<span class="v2-sub-count">'+rest.length+' result'+(rest.length!==1?'s':'')+'</span>'
+    +'</div>'
+    +'<div class="v2-match-list">';
+    rest.forEach(function(sim,idx){
+      var pct=Math.round((sim.similarity_score||0)*100);
+      var name=sim.product_name||nameFromPath(sim.image_path||'');
+      var img=sim.image_url||sim.image_path||'';
+      html+='<div class="v2-match-item">'
+        +'<div class="v2-match-img">'
+          +(img?'<img src="'+esc(img)+'" alt="'+esc(name)+'" loading="lazy">':'')
+          +'<span class="v2-match-rank">'+(idx+2)+'</span>'
+          +'<div class="v2-match-sbar"><div class="v2-match-sbar-fill" style="width:'+pct+'%"></div></div>'
+        +'</div>'
+        +'<div class="v2-match-info">'
+          +'<div class="v2-match-name">'+esc(name)+'</div>'
+          +(sim.price&&sim.price!=='N/A'?'<div class="v2-match-brand">'+esc(sim.price)+' EGP</div>':'')
+        +'</div>'
+        +'<span class="v2-match-pct">'+pct+'%</span>'
+      +'</div>';
+    });
+    html+='</div>';
+  }
+
+  html+=statsHTML();
+  results.innerHTML=html;
+  // update index stat after render (in case health fetch completed mid-render)
+  var el=document.getElementById('v2StatIdx'); if(el) el.textContent=_indexSize;
+}
+
+function statsHTML(){
+  var dets=(_data&&_data.detections)||[];
+  return '<div class="v2-stats">'
+    +'<div class="v2-stat-block">'
+      +'<div class="v2-stat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 4.02 2 6.5v11C2 19.98 6.48 22 12 22s10-2.02 10-4.5v-11C22 4.02 17.52 2 12 2zm0 2c4.47 0 8 1.57 8 3.5S16.47 11 12 11s-8-1.57-8-3.5S7.53 4 12 4zm0 16c-4.47 0-8-1.57-8-3.5v-2.55c1.79 1.25 4.71 2.05 8 2.05s6.21-.8 8-2.05V16.5c0 1.93-3.53 3.5-8 3.5zm0-5c-4.47 0-8-1.57-8-3.5v-2.55c1.79 1.25 4.71 2.05 8 2.05s6.21-.8 8-2.05V11.5c0 1.93-3.53 3.5-8 3.5z"/></svg></div>'
+      +'<div class="v2-stat-text"><span class="v2-stat-val" id="v2StatIdx">'+_indexSize+'</span><span class="v2-stat-label">products indexed</span></div>'
+    +'</div>'
+    +'<div class="v2-stat-block">'
+      +'<div class="v2-stat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg></div>'
+      +'<div class="v2-stat-text"><span class="v2-stat-val">'+_latency+'</span><span class="v2-stat-label">total latency</span></div>'
+    +'</div>'
+    +'<div class="v2-stat-block">'
+      +'<div class="v2-stat-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></div>'
+      +'<div class="v2-stat-text"><span class="v2-stat-val">'+dets.length+'</span><span class="v2-stat-label">detections</span></div>'
+    +'</div>'
+  +'</div>';
+}
+
+function switchCrop(idx){
+  var dets=(_data&&_data.detections)||[];
+  if(idx<0||idx>=dets.length) return;
+  _crop=idx;
+  var thumbs=strip.querySelectorAll('.v2-crop-thumb');
+  thumbs.forEach(function(t,i){t.classList.toggle('active',i===idx);});
+  renderRight();
+}
+
+var _G={'imgss':1,'catalog':1,'static':1,'uploads':1,'images':1,'data':1};
+function nameFromPath(p){
+  var parts=p.replace(/\\/g,'/').split('/');
+  var par=parts.length>=2?parts[parts.length-2]:'';
+  if(!par||_G[par.toLowerCase()]) return (parts[parts.length-1]||'').replace(/\.[^.]+$/,'');
+  return par.replace('white background','').trim();
+}
+</script>
+{% endblock %}

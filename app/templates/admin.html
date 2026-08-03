@@ -1,0 +1,532 @@
+{% extends "base.html" %}
+
+{% block title %}Product Catalog Admin{% endblock %}
+
+{% block extra_styles %}
+<style>
+    body {
+        padding: 40px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .page-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 2rem;
+        color: var(--text-main);
+        margin-bottom: 6px;
+        text-align: center;
+    }
+
+    .page-sub {
+        color: var(--text-muted);
+        font-size: 14px;
+        text-align: center;
+        margin-bottom: 32px;
+    }
+
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--accent);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 24px;
+        transition: opacity 0.2s;
+    }
+    .back-link:hover { opacity: 0.75; }
+
+    /* ── Card ────────────────────────────────────────────────────────── */
+    .card {
+        width: 100%;
+        max-width: 640px;
+        background: var(--card-bg);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--box-border);
+        border-radius: 16px;
+        padding: 36px 40px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        margin-bottom: 28px;
+    }
+
+    /* ── Form ────────────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 20px; }
+
+    label {
+        display: block;
+        margin-bottom: 7px;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-main);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="password"] {
+        width: 100%;
+        padding: 11px 14px;
+        border: 1px solid var(--box-border);
+        border-radius: 8px;
+        background-color: var(--input-bg);
+        color: var(--text-main);
+        font-family: 'DM Sans', sans-serif;
+        font-size: 15px;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        outline: none;
+    }
+
+    input[type="text"]:focus,
+    input[type="number"]:focus,
+    input[type="password"]:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px rgba(97,188,247,0.15);
+    }
+
+    /* ── File drop zone ──────────────────────────────────────────────── */
+    .file-drop-area {
+        border: 2px dashed var(--box-border);
+        border-radius: 10px;
+        padding: 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+        position: relative;
+        background: transparent;
+    }
+
+    .file-drop-area:hover,
+    .file-drop-area.dragover { border-color: var(--accent); background: var(--glass-bg); }
+
+    .file-drop-area input[type="file"] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: pointer;
+        width: 100%;
+    }
+
+    .file-drop-label {
+        font-size: 14px;
+        color: var(--text-muted);
+        pointer-events: none;
+    }
+
+    .file-drop-label strong { color: var(--accent); }
+
+    /* ── Image previews ──────────────────────────────────────────────── */
+    #previewStrip {
+        display: none;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+    }
+
+    .preview-thumb {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 2px solid var(--accent);
+        flex-shrink: 0;
+    }
+
+    /* ── Submit button ───────────────────────────────────────────────── */
+    .submit-btn {
+        width: 100%;
+        padding: 13px;
+        background-color: var(--btn-bg);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 700;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        transition: background-color 0.2s, transform 0.15s;
+        margin-top: 4px;
+    }
+    .submit-btn:hover:not(:disabled) { background-color: var(--btn-hover); transform: translateY(-1px); }
+    .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    /* ── Flash message ───────────────────────────────────────────────── */
+    #flash { margin-top: 18px; display: none; }
+
+    /* ── Catalog section ─────────────────────────────────────────────── */
+    .catalog-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .catalog-header h2 {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.5rem;
+        color: var(--text-main);
+    }
+
+    #catalogCount {
+        font-size: 13px;
+        color: var(--text-muted);
+    }
+
+    .catalog-refresh-btn {
+        background: transparent;
+        border: 1px solid var(--box-border);
+        border-radius: 8px;
+        padding: 6px 14px;
+        color: var(--text-muted);
+        font-size: 13px;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        transition: border-color 0.2s, color 0.2s;
+    }
+    .catalog-refresh-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Catalog grid ────────────────────────────────────────────────── */
+    #catalogGrid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+    }
+
+    .catalog-item {
+        background: var(--item-bg);
+        border: 1px solid var(--box-border);
+        border-radius: 10px;
+        padding: 12px;
+        text-align: center;
+        position: relative;
+        transition: transform 0.15s;
+    }
+    .catalog-item:hover { transform: translateY(-2px); }
+
+    .catalog-item img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .catalog-item-name {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-main);
+        margin-bottom: 3px;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .catalog-item-price {
+        font-size: 12px;
+        color: var(--price-color);
+        font-weight: 600;
+        margin-bottom: 8px;
+    }
+
+    .delete-btn {
+        width: 100%;
+        padding: 5px 0;
+        background: transparent;
+        border: 1px solid var(--error-border);
+        border-radius: 6px;
+        color: var(--error-text);
+        font-size: 12px;
+        cursor: pointer;
+        font-family: 'DM Sans', sans-serif;
+        transition: background 0.2s, color 0.2s;
+    }
+    .delete-btn:hover { background: var(--error-bg); }
+
+    .catalog-empty {
+        text-align: center;
+        padding: 40px 20px;
+        color: var(--text-muted);
+        grid-column: 1 / -1;
+        font-size: 14px;
+    }
+
+    /* ── Catalog loading skeleton ────────────────────────────────────── */
+    @keyframes shimmer {
+        0%,100% { opacity: 1; } 50% { opacity: 0.35; }
+    }
+
+    .catalog-skeleton {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 14px;
+    }
+
+    .skel-card { background: var(--box-bg); border: 1px solid var(--box-border); border-radius: 10px; padding: 12px; }
+    .sk { background: var(--box-border); border-radius: 6px; animation: shimmer 1.6s ease-in-out infinite; }
+    .sk-sq  { width: 100%; aspect-ratio: 1; margin-bottom: 8px; }
+    .sk-ln  { height: 10px; margin-bottom: 6px; }
+    .sk-w70 { width: 70%; }
+    .sk-w50 { width: 50%; }
+</style>
+{% endblock %}
+
+{% block content %}
+<a href="/" class="back-link">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+    </svg>
+    Back to Scanner
+</a>
+
+<h1 class="page-title">Product Catalog Admin</h1>
+<p class="page-sub">Upload reference images to the FAISS knowledge base</p>
+
+<!-- ── Add product form ──────────────────────────────────────────── -->
+<div class="card">
+    <form id="uploadForm">
+        <div class="form-group">
+            <label for="product_name">Product Name (Brand &amp; Description)</label>
+            <input type="text" id="product_name" name="product_name"
+                   placeholder="e.g. Juhayna Milk Full Cream 1L" required>
+        </div>
+
+        <div class="form-group">
+            <label for="price">Average Retail Price (EGP)</label>
+            <input type="number" step="0.25" min="0" id="price" name="price"
+                   placeholder="e.g. 45.00" required>
+        </div>
+
+        <div class="form-group">
+            <label>Reference Images <span style="font-weight:400;color:var(--text-muted)">(1–5 images, different angles recommended)</span></label>
+            <div class="file-drop-area" id="fileDropArea">
+                <input type="file" id="fileInput" name="file" accept="image/*" multiple required>
+                <div class="file-drop-label" id="fileDropLabel">
+                    <strong>Click to browse</strong> or drag &amp; drop<br>
+                    <span style="font-size:12px">JPG, PNG, WebP · Max 15 MB each</span>
+                </div>
+            </div>
+            <div id="previewStrip"></div>
+        </div>
+
+        <div class="form-group">
+            <label for="admin_key">Admin Key <span style="font-weight:400;color:var(--text-muted)">(leave blank if auth is disabled)</span></label>
+            <input type="password" id="admin_key" name="admin_key" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button type="submit" class="submit-btn" id="submitBtn">Add to Knowledge Base</button>
+    </form>
+
+    <div id="flash"></div>
+</div>
+
+<!-- ── Catalog view ──────────────────────────────────────────────── -->
+<div class="card" style="max-width:760px">
+    <div class="catalog-header">
+        <div>
+            <h2>Current Catalog</h2>
+            <span id="catalogCount"></span>
+        </div>
+        <button class="catalog-refresh-btn" onclick="loadCatalog()">↻ Refresh</button>
+    </div>
+    <div id="catalogContent">
+        <div class="catalog-skeleton" id="catalogSkeleton">
+            {% for _ in range(4) %}
+            <div class="skel-card">
+                <div class="sk sk-sq"></div>
+                <div class="sk sk-ln sk-w70"></div>
+                <div class="sk sk-ln sk-w50"></div>
+            </div>
+            {% endfor %}
+        </div>
+        <div id="catalogGrid" style="display:none"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function esc(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function showFlash(msg, isError) {
+    const el = document.getElementById('flash');
+    el.className   = isError ? 'msg-error' : 'msg-success';
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(el._t);
+    el._t = setTimeout(function() { el.style.display = 'none'; }, 6000);
+}
+
+// ── File preview strip ────────────────────────────────────────────────────
+document.getElementById('fileInput').addEventListener('change', function(e) {
+    const files  = Array.from(e.target.files);
+    const strip  = document.getElementById('previewStrip');
+    const label  = document.getElementById('fileDropLabel');
+    const area   = document.getElementById('fileDropArea');
+    strip.innerHTML = '';
+
+    if (!files.length) {
+        strip.style.display = 'none';
+        label.innerHTML = '<strong>Click to browse</strong> or drag &amp; drop<br><span style="font-size:12px">JPG, PNG, WebP · Max 15 MB each</span>';
+        area.classList.remove('dragover');
+        return;
+    }
+
+    const valid = files.filter(function(f) { return f.size <= 15 * 1024 * 1024 && f.type.startsWith('image/'); });
+    if (valid.length < files.length) {
+        showFlash((files.length - valid.length) + ' file(s) skipped (too large or not an image).', true);
+    }
+
+    label.innerHTML = '<strong>' + valid.length + ' image' + (valid.length > 1 ? 's' : '') + ' selected</strong>';
+    strip.style.display = 'flex';
+
+    valid.slice(0, 5).forEach(function(f) {
+        const img = document.createElement('img');
+        img.className = 'preview-thumb';
+        img.alt = esc(f.name);
+        img.src = URL.createObjectURL(f);
+        strip.appendChild(img);
+    });
+});
+
+// Drag highlight on file drop area
+const fileDropArea = document.getElementById('fileDropArea');
+fileDropArea.addEventListener('dragenter', function(e) { e.preventDefault(); fileDropArea.classList.add('dragover'); });
+fileDropArea.addEventListener('dragover',  function(e) { e.preventDefault(); });
+fileDropArea.addEventListener('dragleave', function()  { fileDropArea.classList.remove('dragover'); });
+fileDropArea.addEventListener('drop',      function(e) { e.preventDefault(); fileDropArea.classList.remove('dragover'); });
+
+// ── Form submit ───────────────────────────────────────────────────────────
+document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const btn      = document.getElementById('submitBtn');
+    const adminKey = document.getElementById('admin_key').value;
+
+    btn.textContent = 'Processing…';
+    btn.disabled    = true;
+
+    const formData = new FormData(e.target);
+
+    try {
+        const resp   = await fetch('/admin', {
+            method:  'POST',
+            headers: adminKey ? { 'X-Admin-Key': adminKey } : {},
+            body:    formData,
+        });
+        const result = await resp.json();
+
+        if (resp.ok) {
+            showFlash(result.message, false);
+            e.target.reset();
+            document.getElementById('previewStrip').style.display = 'none';
+            document.getElementById('fileDropLabel').innerHTML =
+                '<strong>Click to browse</strong> or drag &amp; drop<br><span style="font-size:12px">JPG, PNG, WebP · Max 15 MB each</span>';
+            loadCatalog();
+        } else {
+            showFlash(result.error || 'Upload failed.', true);
+        }
+    } catch (err) {
+        showFlash('Network error: ' + err.message, true);
+    } finally {
+        btn.textContent = 'Add to Knowledge Base';
+        btn.disabled    = false;
+    }
+});
+
+// ── Catalog loading ───────────────────────────────────────────────────────
+async function loadCatalog() {
+    const skeleton    = document.getElementById('catalogSkeleton');
+    const grid        = document.getElementById('catalogGrid');
+    const countEl     = document.getElementById('catalogCount');
+    const adminKey    = document.getElementById('admin_key').value;
+
+    skeleton.style.display = 'grid';
+    grid.style.display     = 'none';
+    grid.innerHTML         = '';
+    countEl.textContent    = '';
+
+    try {
+        const resp = await fetch('/admin/catalog', {
+            headers: adminKey ? { 'X-Admin-Key': adminKey } : {},
+        });
+        const data = await resp.json();
+
+        skeleton.style.display = 'none';
+        grid.style.display     = 'grid';
+
+        if (!resp.ok) {
+            grid.innerHTML = '<div class="catalog-empty">Error loading catalog: ' + esc(data.error || 'Unknown error') + '</div>';
+            return;
+        }
+
+        countEl.textContent = data.total + ' item' + (data.total !== 1 ? 's' : '') + ' indexed';
+
+        if (!data.catalog || data.catalog.length === 0) {
+            grid.innerHTML = '<div class="catalog-empty">No products indexed yet.<br>Add your first product above.</div>';
+            return;
+        }
+
+        const parts = data.catalog.map(function(item) {
+            return (
+                '<div class="catalog-item">' +
+                    '<img src="' + esc(item.image_url) + '" alt="' + esc(item.product_name) + '" ' +
+                         'loading="lazy" onerror="this.style.display=\'none\'">' +
+                    '<div class="catalog-item-name">' + esc(item.product_name) + '</div>' +
+                    '<div class="catalog-item-price">' + esc(item.price) + ' EGP</div>' +
+                    '<button class="delete-btn" onclick="deleteItem(' + item.id + ',this)">Remove</button>' +
+                '</div>'
+            );
+        });
+        grid.innerHTML = parts.join('');
+
+    } catch (err) {
+        skeleton.style.display = 'none';
+        grid.style.display     = 'grid';
+        grid.innerHTML = '<div class="catalog-empty">Failed to load catalog: ' + esc(err.message) + '</div>';
+    }
+}
+
+async function deleteItem(id, btn) {
+    if (!confirm('Remove this product from the index?')) return;
+    const adminKey = document.getElementById('admin_key').value;
+
+    btn.disabled    = true;
+    btn.textContent = '…';
+
+    try {
+        const resp   = await fetch('/admin/delete', {
+            method:  'POST',
+            headers: Object.assign({ 'Content-Type': 'application/json' },
+                         adminKey ? { 'X-Admin-Key': adminKey } : {}),
+            body:    JSON.stringify({ id: id }),
+        });
+        const result = await resp.json();
+
+        if (resp.ok) {
+            showFlash(result.message, false);
+            loadCatalog();
+        } else {
+            showFlash(result.error || 'Delete failed.', true);
+            btn.disabled    = false;
+            btn.textContent = 'Remove';
+        }
+    } catch (err) {
+        showFlash('Network error: ' + err.message, true);
+        btn.disabled    = false;
+        btn.textContent = 'Remove';
+    }
+}
+
+// Load catalog on page open
+loadCatalog();
+</script>
+{% endblock %}
